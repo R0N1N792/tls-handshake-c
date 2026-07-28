@@ -40,7 +40,7 @@ static void test_session_keys_correctness(void) {
     err = derive_server_keys(server_session, server, client -> pk);
     CHECK(err != -1, "derive_server_keys succeeds");
 
-    CHECK_TEST(memcmp(server_session -> rx, client_session -> tx,32) ==0 && memcmp(client_session -> rx, server_session -> tx, 32) == 0,
+    CHECK_TEST(memcmp(server_session -> rx, client_session -> tx,32) ==0 && memcmp(client_session -> rx, server_session -> tx, SESSION_KEY_LEN) == 0,
         "test: client tx equals to server tx and vice versa");
 
     free(client_session);
@@ -65,7 +65,7 @@ static void test_forged_server_pk_is_rejected_or_diverges(void) {
 
     session_keypair_t* client_session = malloc(sizeof(session_keypair_t));
     //forging a pk for server
-    char forged_server_pk[32];
+    char forged_server_pk[PUBLIC_KEY_LEN];
     randombytes_buf(forged_server_pk, sizeof(forged_server_pk));
 
     err = derive_client_keys(client_session, client, forged_server_pk);
@@ -75,7 +75,7 @@ static void test_forged_server_pk_is_rejected_or_diverges(void) {
     err = derive_server_keys(server_session, server, client -> pk);
     CHECK(err != -1, "derive_server_keys succeeds");
 
-    CHECK_TEST(memcmp(server_session -> rx, client_session -> tx,32) !=0 && memcmp(client_session -> rx, server_session -> tx, 32) != 0,
+    CHECK_TEST(memcmp(server_session -> rx, client_session -> tx,SESSION_KEY_LEN) !=0 && memcmp(client_session -> rx, server_session -> tx, SESSION_KEY_LEN) != 0,
         "test: forged server pk is rejected");
 
     free(client_session);
