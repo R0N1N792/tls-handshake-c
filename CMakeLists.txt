@@ -25,13 +25,13 @@ add_executable(tls_handshake_c main.c)
 target_link_libraries(tls_handshake_c PRIVATE crypto_lib)
 
 # --- test executable ---
-add_executable(test_generator test/test_generator.c
+add_executable(test_crypto test/test_crypto.c
         test/test_utils.h)
-target_include_directories(test_generator PRIVATE test)
-target_link_libraries(test_generator PRIVATE crypto_lib)
+target_include_directories(test_crypto PRIVATE test)
+target_link_libraries(test_crypto PRIVATE crypto_lib)
 
 # --- Winsock linking only for Windows ---
 if (WIN32)
     target_link_libraries(tls_handshake_c PRIVATE ws2_32)
-    target_link_libraries(test_generator PRIVATE ws2_32)
+    target_link_libraries(test_crypto PRIVATE ws2_32)
 endif()
