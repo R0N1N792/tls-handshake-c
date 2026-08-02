@@ -7,10 +7,6 @@ int crypto_init(void) {
         return -1;
     }
 
-    if (crypto_aead_aes256gcm_is_available() == 0) {
-        return -2;
-    }
-
     return 0;
 
 
@@ -29,28 +25,58 @@ int derive_server_keys(session_keypair_t* const session_keys,const keypair_t* se
     return crypto_kx_server_session_keys(session_keys -> rx, session_keys -> tx, server_keypair -> pk, server_keypair -> sk, client_pk);
 }
 
+aead_algo_t crypto_best_available_algo(void) {
+    return crypto_aead_aes256gcm_is_available()
+        ? AEAD_AES256GCM
+        : AEAD_CHACHA20POLY1305;
+}
 
-int encrypt_message(unsigned char *out_ciphertext, unsigned long long *out_len,
+
+int encrypt_message(aead_algo_t algo,unsigned char *out_ciphertext, unsigned long long *out_len,
                      const unsigned char *plaintext, size_t plaintext_len,
                      const unsigned char nonce[NONCE_LEN],
                      const unsigned char key[AEAD_KEY_LEN]) {
 
+    switch (algo) {
+        case AEAD_AES256GCM:
+            return crypto_aead_aes256gcm_encrypt(out_ciphertext, out_len,
+                plaintext, plaintext_len,
+                NULL, 0,
+                NULL,
+                nonce, key);
 
-    return crypto_aead_aes256gcm_encrypt(out_ciphertext, out_len,
-        plaintext, plaintext_len,
-        NULL, 0,
-        NULL,
-        nonce, key);
+        case AEAD_CHACHA20POLY1305:
+            return crypto_aead_chacha20poly1305_encrypt(out_ciphertext, out_len,
+                plaintext, plaintext_len,
+                NULL, 0,
+                NULL,
+                nonce, key);
+
+        default:
+            return -1;
+    }
 }
 
-int decrypt_message(unsigned char *out_plaintext, unsigned long long *out_len,
+
+int decrypt_message(aead_algo_t algo,unsigned char *out_plaintext,
+                    unsigned long long *out_len,
                      const unsigned char *ciphertext, size_t ciphertext_len,
                      const unsigned char nonce[NONCE_LEN],
                      const unsigned char key[AEAD_KEY_LEN]) {
+    switch (algo) {
+        case AEAD_AES256GCM:
+            return crypto_aead_aes256gcm_decrypt(out_plaintext, out_len,NULL,
+            ciphertext, ciphertext_len,
+            NULL, 0,
+            nonce, key);
 
-    return crypto_aead_aes256gcm_decrypt(out_plaintext, out_len,
-        NULL,
-        ciphertext, ciphertext_len,
-        NULL, 0,
-        nonce, key);
+        case AEAD_CHACHA20POLY1305:
+            return crypto_aead_chacha20poly1305_decrypt(out_plaintext, out_len,NULL,
+                ciphertext, ciphertext_len,
+                NULL, 0,
+                nonce, key);
+        default:
+            return -1;
+
+    }
 }

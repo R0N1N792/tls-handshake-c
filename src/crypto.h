@@ -1,6 +1,8 @@
 #pragma once
 
 
+#define AEAD_TAG_LEN 16 // for AEAD_CHACHA20POLY1305 and AAEAD_AES256GCM is the same
+
 #define PUBLIC_KEY_LEN crypto_kx_PUBLICKEYBYTES
 #define SECRET_KEY_LEN crypto_kx_SECRETKEYBYTES
 /**
@@ -11,6 +13,14 @@ typedef struct keypair {
     unsigned char sk[SECRET_KEY_LEN];
 } keypair_t;
 
+
+/**
+ * @brief enumeration of all encryption algorithms that could be used in program
+ */
+typedef enum {
+    AEAD_AES256GCM,
+    AEAD_CHACHA20POLY1305
+} aead_algo_t;
 
 
 #define SESSION_KEY_LEN crypto_kx_SESSIONKEYBYTES
@@ -66,8 +76,9 @@ int derive_server_keys(session_keypair_t* const session_keys,const keypair_t* se
 #define TAG_LEN    crypto_aead_aes256gcm_ABYTES
 #define AEAD_KEY_LEN crypto_aead_aes256gcm_KEYBYTES
 /**
- * @brief  wrapper for crypto_aead_aes256gcm_encrypt function
+ * @brief  wrapper for encrypting algo function
  *
+ * @param algo select algorithm to encrypt message(AEAD_AES256GCM or AEAD_CHACHA20POLY1305)
  * @param out_ciphertext resulting ciphertext
  * @param out_len length of resulting cipher text
  * @param plaintext input plaintext
@@ -77,15 +88,17 @@ int derive_server_keys(session_keypair_t* const session_keys,const keypair_t* se
  *
  * @return  0 on success, -1 if AES-GCM is unavailable or encryption fails.
  */
-int encrypt_message(unsigned char *out_ciphertext, unsigned long long *out_len,
+int encrypt_message(aead_algo_t algo,
+    unsigned char *out_ciphertext, unsigned long long *out_len,
                      const unsigned char *plaintext, size_t plaintext_len,
                      const unsigned char nonce[NONCE_LEN],
                      const unsigned char key[AEAD_KEY_LEN]);
 
 
 /**
- * @brief wrapper for crypto_aead_aes256gcm_decrypt function
+ * @brief wrapper for decrypting algo function
  *
+ * @param algo select algorithm to decrypt message(AEAD_AES256GCM or AEAD_CHACHA20POLY1305)
  * @param out_plaintext resulting plaintext
  * @param out_len length of resulting plain text
  * @param ciphertext input ciphertext
@@ -95,7 +108,14 @@ int encrypt_message(unsigned char *out_ciphertext, unsigned long long *out_len,
  *
  * @return 0 on success, -1 if the tag verification fails (message forged or corrupted).
  */
-int decrypt_message(unsigned char *out_plaintext, unsigned long long *out_len,
+int decrypt_message(aead_algo_t algo,
+    unsigned char *out_plaintext, unsigned long long *out_len,
                      const unsigned char *ciphertext, size_t ciphertext_len,
                      const unsigned char nonce[NONCE_LEN],
                      const unsigned char key[AEAD_KEY_LEN]);
+
+
+/**
+ *  @brief chooses the best available algorithm for symmetric encryption depending on hardware
+ */
+aead_algo_t crypto_best_available_algo(void);

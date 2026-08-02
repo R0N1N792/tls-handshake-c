@@ -35,3 +35,8 @@ if (WIN32)
     target_link_libraries(tls_handshake_c PRIVATE ws2_32)
     target_link_libraries(test_crypto PRIVATE ws2_32)
 endif()
+
+if(CMAKE_BUILD_TYPE STREQUAL "Sanitize")
+    add_compile_options(-fsanitize=address -g -O1)
+    add_link_options(-fsanitize=address)
+endif()
