@@ -45,7 +45,7 @@ static void test_session_keys_correctness(void) {
     err = derive_server_keys(server_session, server, client -> pk);
     CHECK(err != -1, "derive_server_keys succeeds");
 
-    CHECK_TEST(memcmp(server_session -> rx, client_session -> tx,32) == 0 && memcmp(client_session -> rx, server_session -> tx, SESSION_KEY_LEN) == 0,
+    CHECK_TEST(memcmp(server_session -> rx, client_session -> tx, SESSION_KEY_LEN) == 0 && memcmp(client_session -> rx, server_session -> tx, SESSION_KEY_LEN) == 0,
         "test: client tx equals to server tx and vice versa");
 
     free(client_session);
@@ -71,7 +71,7 @@ static void test_forged_server_pk_is_rejected_or_diverges(void) {
 
     session_keypair_t* client_session = malloc(sizeof(session_keypair_t));
     //forging a pk for server
-    char forged_server_pk[PUBLIC_KEY_LEN];
+    unsigned char forged_server_pk[PUBLIC_KEY_LEN];
     randombytes_buf(forged_server_pk, sizeof(forged_server_pk));
 
     err = derive_client_keys(client_session, client, forged_server_pk);
@@ -101,23 +101,23 @@ static void test_encrypt_decrypt_roundtrip_returns_original_plaintext(aead_algo_
     const char* plaintext = "Hello World!";
     const size_t plaintext_len = strlen(plaintext) ;
 
-    char key[AEAD_KEY_LEN];
+    unsigned char key[AEAD_KEY_LEN];
     randombytes_buf(key, AEAD_KEY_LEN);
 
-    char nonce[NONCE_LEN];
+    unsigned char nonce[NONCE_LEN];
     randombytes_buf(nonce, NONCE_LEN);
 
 
 
-    char* ciphertext = malloc(plaintext_len + AEAD_TAG_LEN);
+    unsigned char* ciphertext = malloc(plaintext_len + AEAD_TAG_LEN);
     unsigned long long ciphertext_len;
 
     err = encrypt_message(algo, ciphertext, &ciphertext_len,
-        plaintext, plaintext_len,
+        (const unsigned char*)plaintext, plaintext_len,
         nonce, key);
     CHECK(err != -1, "encrypt_message succeeds");
 
-    char* newPlaintext = malloc(plaintext_len);
+    unsigned char* newPlaintext = malloc(plaintext_len);
     unsigned long long newPlaintext_len;
 
     err = decrypt_message(algo, newPlaintext, &newPlaintext_len,
@@ -139,19 +139,19 @@ void test_decrypt_tampered_ciphertext_fails(aead_algo_t algo) {
     const char* plaintext = "Hello World!";
     const size_t plaintext_len = strlen(plaintext) ;
 
-    char key[AEAD_KEY_LEN];
+    unsigned char key[AEAD_KEY_LEN];
     randombytes_buf(key, AEAD_KEY_LEN);
 
-    char nonce[NONCE_LEN];
+    unsigned char nonce[NONCE_LEN];
     randombytes_buf(nonce, NONCE_LEN);
 
 
 
-    char* ciphertext = malloc(plaintext_len + AEAD_TAG_LEN);
+    unsigned char* ciphertext = malloc(plaintext_len + AEAD_TAG_LEN);
     unsigned long long ciphertext_len;
 
     err = encrypt_message(algo, ciphertext, &ciphertext_len,
-        plaintext, plaintext_len,
+        (const unsigned char*)plaintext, plaintext_len,
         nonce, key);
     CHECK(err != -1, "encrypt_message succeeds");
 
@@ -162,7 +162,7 @@ void test_decrypt_tampered_ciphertext_fails(aead_algo_t algo) {
     ciphertext[idx] ^= bit;
 
 
-    char* newPlaintext = malloc(plaintext_len);
+    unsigned char* newPlaintext = malloc(plaintext_len);
     unsigned long long newPlaintext_len;
 
 
@@ -184,19 +184,19 @@ void test_decrypt_tampered_tag_fails(aead_algo_t algo) {
     const char* plaintext = "Hello World!";
     const size_t plaintext_len = strlen(plaintext) ;
 
-    char key[AEAD_KEY_LEN];
+    unsigned char key[AEAD_KEY_LEN];
     randombytes_buf(key, AEAD_KEY_LEN);
 
-    char nonce[NONCE_LEN];
+    unsigned char nonce[NONCE_LEN];
     randombytes_buf(nonce, NONCE_LEN);
 
 
 
-    char* ciphertext = malloc(plaintext_len + AEAD_TAG_LEN);
+    unsigned char* ciphertext = malloc(plaintext_len + AEAD_TAG_LEN);
     unsigned long long ciphertext_len;
 
     err = encrypt_message(algo, ciphertext, &ciphertext_len,
-        plaintext, plaintext_len,
+        (const unsigned char*)plaintext, plaintext_len,
         nonce, key);
     CHECK(err != -1, "encrypt_message succeeds");
 
@@ -207,7 +207,7 @@ void test_decrypt_tampered_tag_fails(aead_algo_t algo) {
     ciphertext[idx] ^= bit;
 
 
-    char* newPlaintext = malloc(plaintext_len);
+    unsigned char* newPlaintext = malloc(plaintext_len);
     unsigned long long newPlaintext_len;
 
 
@@ -228,27 +228,27 @@ void test_decrypt_wrong_key_fails(aead_algo_t algo) {
     const char* plaintext = "Hello World!";
     const size_t plaintext_len = strlen(plaintext) ;
 
-    char key[AEAD_KEY_LEN];
+    unsigned char key[AEAD_KEY_LEN];
     randombytes_buf(key, AEAD_KEY_LEN);
 
-    char nonce[NONCE_LEN];
+    unsigned char nonce[NONCE_LEN];
     randombytes_buf(nonce, NONCE_LEN);
 
 
 
-    char* ciphertext = malloc(plaintext_len + AEAD_TAG_LEN);
+    unsigned char* ciphertext = malloc(plaintext_len + AEAD_TAG_LEN);
     unsigned long long ciphertext_len;
 
     err = encrypt_message(algo, ciphertext, &ciphertext_len,
-        plaintext, plaintext_len,
+        (const unsigned char*)plaintext, plaintext_len,
         nonce, key);
     CHECK(err != -1, "encrypt_message succeeds");
 
-    char* newPlaintext = malloc(plaintext_len);
+    unsigned char* newPlaintext = malloc(plaintext_len);
     unsigned long long newPlaintext_len;
 
     //creating a new key for decryption
-    char wrongKey[AEAD_KEY_LEN];
+    unsigned char wrongKey[AEAD_KEY_LEN];
     memcpy(wrongKey, key, AEAD_KEY_LEN);
 
     //tampering a bit of key(not to generate random_but to avoid generating the same key)
@@ -276,13 +276,13 @@ int main(void) {
     test_forged_server_pk_is_rejected_or_diverges();
     printf("------------------------------------------------------------------------------------------------------------------\n");
     printf("Testing AEAD_CHACHA20POLY1305\n");
-    test_encrypt_decrypt_roundtrip_returns_original_plaintext(AEAD_CHACHA20POLY1305);
+    test_encrypt_decrypt_roundtrip_returns_original_plaintext(AEAD_CHACHA20POLY1305_IETF);
     printf("------------------------------------------------------------------------------------------------------------------\n");
-    test_decrypt_tampered_ciphertext_fails(AEAD_CHACHA20POLY1305);
+    test_decrypt_tampered_ciphertext_fails(AEAD_CHACHA20POLY1305_IETF);
     printf("------------------------------------------------------------------------------------------------------------------\n");
-    test_decrypt_tampered_tag_fails(AEAD_CHACHA20POLY1305);
+    test_decrypt_tampered_tag_fails(AEAD_CHACHA20POLY1305_IETF);
     printf("------------------------------------------------------------------------------------------------------------------\n");
-    test_decrypt_wrong_key_fails(AEAD_CHACHA20POLY1305);
+    test_decrypt_wrong_key_fails(AEAD_CHACHA20POLY1305_IETF);
     printf("------------------------------------------------------------------------------------------------------------------\n");
 
 
@@ -297,9 +297,10 @@ int main(void) {
         printf("------------------------------------------------------------------------------------------------------------------\n");
         test_decrypt_wrong_key_fails(AEAD_AES256GCM);
         printf("------------------------------------------------------------------------------------------------------------------\n");
-
-
     }
+    else
+        printf("SKIPPED: AES-256-GCM unavailable\n");
 
-    return 0;
+    TEST_SUMMARY();
+    return tests_passed == tests_run ? 0 : 1;
 }

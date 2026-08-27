@@ -1,7 +1,15 @@
 #pragma once
 
 
-#define AEAD_TAG_LEN 16 // for AEAD_CHACHA20POLY1305 and AAEAD_AES256GCM is the same
+#include <stdint.h>
+#include <sodium.h>
+
+
+
+#define AEAD_TAG_LEN crypto_aead_aes256gcm_ABYTES // for AEAD_CHACHA20POLY1305_IETF and AAEAD_AES256GCM the tag length is the same(16 bytes)
+_Static_assert(AEAD_TAG_LEN == crypto_aead_chacha20poly1305_ietf_ABYTES,    "tag size mismatch");
+
+
 
 #define PUBLIC_KEY_LEN crypto_kx_PUBLICKEYBYTES
 #define SECRET_KEY_LEN crypto_kx_SECRETKEYBYTES
@@ -19,7 +27,7 @@ typedef struct keypair {
  */
 typedef enum {
     AEAD_AES256GCM,
-    AEAD_CHACHA20POLY1305
+    AEAD_CHACHA20POLY1305_IETF
 } aead_algo_t;
 
 
@@ -72,9 +80,12 @@ int derive_server_keys(session_keypair_t* const session_keys,const keypair_t* se
 
 
 
-#define NONCE_LEN crypto_aead_aes256gcm_NPUBBYTES
-#define TAG_LEN    crypto_aead_aes256gcm_ABYTES
-#define AEAD_KEY_LEN crypto_aead_aes256gcm_KEYBYTES
+#define NONCE_LEN crypto_aead_aes256gcm_NPUBBYTES //we use crypto_aead_aes256gcm_NPUBBYTES(12 bytes) and crypto_aead_chacha20poly1305_IETF_NPUBBYTES(12 bytes) are of the same size
+_Static_assert(NONCE_LEN    == crypto_aead_chacha20poly1305_ietf_NPUBBYTES, "nonce size mismatch");
+
+#define AEAD_KEY_LEN crypto_aead_aes256gcm_KEYBYTES //the same for crypto_aead_chacha20poly1305_IETF_KEYBYTES(32 bytes)
+_Static_assert(AEAD_KEY_LEN == crypto_aead_chacha20poly1305_ietf_KEYBYTES,  "key size mismatch");
+
 /**
  * @brief  wrapper for encrypting algo function
  *
@@ -114,8 +125,23 @@ int decrypt_message(aead_algo_t algo,
                      const unsigned char nonce[NONCE_LEN],
                      const unsigned char key[AEAD_KEY_LEN]);
 
+/**
+ * @brief Encodes a monotonically increasing counter into a fixed-size AEAD nonce
+ *
+ *
+ * @param nonce Buffer of NONCE_LEN bytes to receive the encoded nonce.
+ * @param counter Per-key send/receive sequence number, incremented
+ *                      once per encrypt/decrypt call
+ */
+void make_nonce(unsigned char nonce[NONCE_LEN], uint64_t counter);
+
 
 /**
- *  @brief chooses the best available algorithm for symmetric encryption depending on hardware
+ * @brief calls sodium_memzero() and free() to the pointer of session_keypair_t
  */
-aead_algo_t crypto_best_available_algo(void);
+void crypto_free_session(session_keypair_t **sk);
+
+/**
+ * @brief calls sodium_memzero() and free() to the pointer of keypair_t
+ */
+void crypto_free_keypair(keypair_t **kp);

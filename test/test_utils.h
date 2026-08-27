@@ -1,6 +1,5 @@
 #pragma once
-#include <stdio.h>
-#include <stdlib.h>
+
 
 
 
@@ -9,8 +8,7 @@
 
 static int tests_run = 0, tests_passed = 0;
 
-#define CHECK(condition, description) do {                                 \
-    tests_run++;                                                           \
+#define CHECK(condition, description) do {                                                                                            \
     if (condition) {                                                       \
         printf("  [SUCCEED]   %s\n", description);                              \
     }                                                                      \

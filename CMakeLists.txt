@@ -30,13 +30,43 @@ add_executable(test_crypto test/test_crypto.c
 target_include_directories(test_crypto PRIVATE test)
 target_link_libraries(test_crypto PRIVATE crypto_lib)
 
+# --- shared networking library ---
+add_library(net_lib STATIC
+        src/net.h
+        src/net.c)
+target_include_directories(net_lib PUBLIC src)
+
+# --- server executable ---
+add_executable(server src/server.c )
+target_link_libraries(server PRIVATE net_lib crypto_lib)
+
+# --- client executable ---
+add_executable(client src/client.c )
+target_link_libraries(client PRIVATE net_lib crypto_lib)
+
 # --- Winsock linking only for Windows ---
 if (WIN32)
     target_link_libraries(tls_handshake_c PRIVATE ws2_32)
     target_link_libraries(test_crypto PRIVATE ws2_32)
+    target_link_libraries(client PRIVATE ws2_32)
+    target_link_libraries(server PRIVATE ws2_32)
 endif()
 
-if(CMAKE_BUILD_TYPE STREQUAL "Sanitize")
-    add_compile_options(-fsanitize=address -g -O1)
-    add_link_options(-fsanitize=address)
+# --- Tests ---
+enable_testing()
+add_test(NAME test_crypto COMMAND test_crypto)
+
+
+# --- warning flags ---
+add_library(project_warnings INTERFACE)
+if (MSVC)
+    target_compile_options(project_warnings INTERFACE /W4)
+else()
+    target_compile_options(project_warnings INTERFACE -Wall -Wextra -Wpedantic)
 endif()
+
+target_link_libraries(crypto_lib   PRIVATE project_warnings)
+target_link_libraries(net_lib      PRIVATE project_warnings)
+target_link_libraries(server       PRIVATE project_warnings)
+target_link_libraries(client       PRIVATE project_warnings)
+target_link_libraries(test_crypto  PRIVATE project_warnings)
