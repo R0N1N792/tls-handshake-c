@@ -1,22 +1,28 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <arpa/inet.h>
-#include <unistd.h>
 #include <sodium.h>
 #include <errno.h>
 #include <signal.h>
 
-
-#include "net.h"
+#include "net.h"          /* brings in the platform's socket headers */
 #include "crypto.h"
 #include "byteorder.h"
+
+#ifdef _WIN32
+  #include <windows.h>    /* Sleep(); must follow the winsock2.h in net.h */
+  #include <direct.h>     /* _chdir()/_getcwd() */
+  #define chdir  _chdir
+  #define getcwd _getcwd
+#else
+  #include <unistd.h>
+#endif
 
 #define ARTIFICIAL_SERVER_DELAY 0
 
 //for multi-thread reading
 typedef struct {
-    int active_socket;
+    socket_t active_socket;
     struct sockaddr_in cli_addr;
 } thread_args_t;
 
@@ -24,10 +30,34 @@ typedef struct {
 //signals to interrupt server in the middle of syscall
 static volatile sig_atomic_t g_stop = 0;
 
+//the listener, published so the handler can wake up a blocking accept()
+static socket_t g_passive_sock = INVALID_SOCK;
+
+#ifdef _WIN32
+static void on_signal(int sig){
+
+    (void)sig;
+    g_stop = 1;
+    /* Windows raises SIGINT on its own thread and does not interrupt a
+       blocking accept(), so closing the listener is what unblocks main() */
+    const socket_t s = g_passive_sock;
+    g_passive_sock = INVALID_SOCK;
+    if (s != INVALID_SOCK) net_close_socket(s);
+}
+
+static void install_signal_handlers(void){
+
+    /* no sigaction() on Windows */
+    signal(SIGINT,  on_signal);
+    signal(SIGTERM, on_signal);
+}
+
+static void sleep_seconds(unsigned seconds) { Sleep(seconds * 1000u); }
+#else
 static void on_signal(int sig) { (void)sig; g_stop = 1; }
 
-static void install_signal_handlers(void)
-{
+static void install_signal_handlers(void){
+
     struct sigaction sa;
     memset(&sa, 0, sizeof sa);
     sa.sa_handler = on_signal;
@@ -36,9 +66,12 @@ static void install_signal_handlers(void)
     sigaction(SIGTERM, &sa, NULL);
 }
 
+static void sleep_seconds(unsigned seconds) { sleep(seconds); }
+#endif
 
-static int read_until(int sock, char *buf, size_t maxlen, char delim)
-{
+
+static int read_until(socket_t sock, char *buf, size_t maxlen, char delim){
+
     size_t i = 0;
     char c;
     while (i < maxlen - 1) {
@@ -69,13 +102,14 @@ int main(int argc, char* argv[])
     net_init();
     crypto_init();
     uint16_t port = DEFAULT_SERVER_PORT;
-    int passive_sock = tcp_server_init(DEFAULT_SERVER_IP, port);
-    if (passive_sock < 0) {
+    socket_t passive_sock = tcp_server_init(DEFAULT_SERVER_IP, port);
+    if (passive_sock == INVALID_SOCK) {
         fprintf(stderr, "Failed to init TCP server\n");
         return EXIT_FAILURE;
     }
     printf("Server listening on %s:%d\n", DEFAULT_SERVER_IP, port);
 
+    g_passive_sock = passive_sock;
     install_signal_handlers();
 
     while (!g_stop) {
@@ -86,22 +120,23 @@ int main(int argc, char* argv[])
         }
 
         args->active_socket = tcp_accept(passive_sock, &args->cli_addr);
-        if (args->active_socket < 0) {
+        if (args->active_socket == INVALID_SOCK) {
+            //Winsock does not use errno; read the code before free() can clobber it
+            const int err_code = net_last_error();
             free(args);
 
             if (g_stop) break;
 
-            if (errno == EINTR || errno == ECONNABORTED)
+            if (err_code == NET_EINTR || err_code == NET_ECONNABORTED)
                 continue;
 
-            if (errno == EMFILE || errno == ENFILE ||
-                errno == ENOBUFS || errno == ENOMEM) {
-                fprintf(stderr, "accept: %s - backing off\n", strerror(errno));
-                sleep(1);
+            if (err_code == NET_EMFILE || err_code == NET_ENOBUFS) {
+                fprintf(stderr, "accept: %s - backing off\n", net_error_str(err_code));
+                sleep_seconds(1);
                 continue;
                 }
 
-            fprintf(stderr, "accept failed: %s\n", strerror(errno));
+            fprintf(stderr, "accept failed: %s\n", net_error_str(err_code));
             break;
         }
 
@@ -109,7 +144,8 @@ int main(int argc, char* argv[])
     }
 
     printf("\nShutting down...\n");
-    net_close_socket(passive_sock);
+    if (g_passive_sock != INVALID_SOCK) net_close_socket(g_passive_sock);
+    g_passive_sock = INVALID_SOCK;
     net_cleanup();
     return EXIT_SUCCESS;
 }
@@ -117,7 +153,7 @@ int main(int argc, char* argv[])
 void* handle_connection(void* arguments) {
 
     thread_args_t* args = (thread_args_t*) arguments;
-    int active_sock = args ->active_socket;
+    socket_t active_sock = args ->active_socket;
     struct sockaddr_in cli_addr = args ->cli_addr;
     free(args);
 
@@ -205,8 +241,10 @@ void* handle_connection(void* arguments) {
     printf("Expected size: %zu bytes\n", file_size);
 
     // Write to file
-    const char *base = strrchr(filename, '/');
-    base = base ? base + 1 : filename;
+    const char *base = filename;
+    for (const char *p = filename; *p != '\0'; ++p) {
+        if (*p == '/' || *p == '\\' || *p == ':') base = p + 1;
+    }
     if (base[0] == '\0' || strcmp(base, ".") == 0 || strcmp(base, "..") == 0) {
         fprintf(stderr, "Rejected filename: %s\n", filename);
         net_close_socket(active_sock);
@@ -262,7 +300,7 @@ void* handle_connection(void* arguments) {
 
         sodium_memzero(buf, BATCH_SIZE);
     }
-    sleep(ARTIFICIAL_SERVER_DELAY);
+    sleep_seconds(ARTIFICIAL_SERVER_DELAY);
     printf("File '%s' saved (%zu/%zu bytes)\n", filename, total, file_size);
     fclose(f);
 

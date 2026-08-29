@@ -5,6 +5,9 @@
   #ifndef WIN32_LEAN_AND_MEAN
     #define WIN32_LEAN_AND_MEAN
   #endif
+  #ifndef _WIN32_WINNT
+    #define _WIN32_WINNT 0x0601
+  #endif
   #include <winsock2.h>      /* must come before <windows.h> */
   #include <ws2tcpip.h>
   #include <basetsd.h>
@@ -20,6 +23,7 @@ typedef SSIZE_T ssize_t;
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <errno.h>
 typedef int socket_t;
 #define INVALID_SOCK (-1)
 #endif
@@ -35,12 +39,25 @@ typedef int socket_t;
 
 #define MAX_BACKLOG 15
 
-#define EXIT_SUCCESS 0
 #define BATCH_SIZE 1024
 
 
 #define NET_OK    0
 #define NET_ERR (-1)
+
+
+/* --- socket error codes: Winsock keeps its own set and never touches errno --- */
+#ifdef _WIN32
+  #define NET_EINTR        WSAEINTR
+  #define NET_ECONNABORTED WSAECONNABORTED
+  #define NET_EMFILE       WSAEMFILE
+  #define NET_ENOBUFS      WSAENOBUFS
+#else
+  #define NET_EINTR        EINTR
+  #define NET_ECONNABORTED ECONNABORTED
+  #define NET_EMFILE       EMFILE
+  #define NET_ENOBUFS      ENOBUFS
+#endif
 
 
 /**
@@ -56,7 +73,7 @@ typedef int socket_t;
  * @return len on success (all bytes sent); -1 on error (NULL buf, or
  *         send() failure other than EINTR)
  */
-ssize_t tcp_send(int socket, const void* buf, size_t len);
+ssize_t tcp_send(socket_t socket, const void* buf, size_t len);
 
 /**
  * @brief Reads exactly len bytes from a TCP socket, retrying until the
@@ -75,13 +92,13 @@ ssize_t tcp_send(int socket, const void* buf, size_t len);
  *         a recv() failure other than EINTR). Callers must compare the
  *         result against len, not just against 0, to detect a short read.
  */
-ssize_t tcp_read(int socket, void* buf, size_t len);
+ssize_t tcp_read(socket_t socket, void* buf, size_t len);
 
 /**
  *
- * @return socket of domain AF_INET(TCP) and type SOCK_STREAM if success, or -1 otherwise
+ * @return socket of domain AF_INET(TCP) and type SOCK_STREAM if success, or INVALID_SOCK otherwise
  */
-int get_tcp_socket(void);
+socket_t get_tcp_socket(void);
 
 
 /**
@@ -104,7 +121,7 @@ int get_server_addr(const char* ip, uint16_t port,
  * @param port
  * @return 0 if success, -1 otherwise
  */
-int bind_server(int socket, const char* ip, uint16_t port);
+int bind_server(socket_t socket, const char* ip, uint16_t port);
 
 
 /**
@@ -112,9 +129,9 @@ int bind_server(int socket, const char* ip, uint16_t port);
  *
  * @param ip IP address to associate the socket with; must not be NULL
  * @param port port to associate the socket with
- * @return socket number if success, -1 otherwise
+ * @return socket number if success, INVALID_SOCK otherwise
  */
-int tcp_server_init(const char* ip, uint16_t port);
+socket_t tcp_server_init(const char* ip, uint16_t port);
 
 
 /**
@@ -122,9 +139,9 @@ int tcp_server_init(const char* ip, uint16_t port);
  *
  * @param passive_socket passive socket of server
  * @param cli_addr address of client to connect
- * @return 0 if success, -1 otherwise
+ * @return the connected socket if success, INVALID_SOCK otherwise
  */
-int tcp_accept(int passive_socket,struct sockaddr_in* cli_addr);
+socket_t tcp_accept(socket_t passive_socket,struct sockaddr_in* cli_addr);
 
 
 
@@ -147,3 +164,22 @@ void net_cleanup(void);
  * @param sock socket to be cleaned
  */
 void net_close_socket(socket_t sock);
+
+/**
+ * @brief error code left by the last failed socket call
+ *
+ * Winsock does not report through errno, so socket errors must be read with
+ * WSAGetLastError() on Windows and errno everywhere else. Compare the result
+ * against the NET_E* constants, never against the bare errno names.
+ *
+ * @return platform-specific error code
+ */
+int net_last_error(void);
+
+/**
+ * @brief human-readable text for a code returned by net_last_error()
+ *
+ * @param err code from net_last_error()
+ * @return pointer to a static buffer, overwritten by the next call
+ */
+const char* net_error_str(int err);

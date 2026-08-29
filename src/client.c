@@ -1,13 +1,12 @@
 #include <stdio.h>
-#include <unistd.h>
-#include <sys/socket.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/stat.h>
 #include <sodium.h>
 #include <inttypes.h>
-#include <netinet/in.h>
 
 
-#include "net.h"
+#include "net.h" 
 #include "crypto.h"
 #include "byteorder.h"
 
@@ -41,8 +40,8 @@ int main(int argc, char* argv[])
     }
 
     // Create socket and connect
-    int sock = get_tcp_socket();
-    if (sock < 0) {
+    socket_t sock = get_tcp_socket();
+    if (sock == INVALID_SOCK) {
         fprintf(stderr, "Failed to create TCP socket\n");
         fclose(f);
         return EXIT_FAILURE;
@@ -50,14 +49,14 @@ int main(int argc, char* argv[])
 
     struct sockaddr_in srv_addr;
     uint16_t portServer = DEFAULT_SERVER_PORT;
-    if (get_server_addr(DEFAULT_SERVER_IP, portServer, &srv_addr) != EXIT_SUCCESS) {
+    if (get_server_addr(DEFAULT_SERVER_IP, portServer, &srv_addr) != NET_OK) {
         fprintf(stderr, "Failed to get server address\n");
         net_close_socket(sock);
         fclose(f);
         return EXIT_FAILURE;
     }
 
-    if (connect(sock, (struct sockaddr *)&srv_addr, sizeof(srv_addr)) < 0) {
+    if (connect(sock, (struct sockaddr *)&srv_addr, (socklen_t)sizeof(srv_addr)) < 0) {
         fprintf(stderr, "Failed to connect to server\n");
         net_close_socket(sock);
         fclose(f);

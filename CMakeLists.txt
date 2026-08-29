@@ -46,6 +46,9 @@ target_link_libraries(client PRIVATE net_lib crypto_lib)
 
 # --- Winsock linking only for Windows ---
 if (WIN32)
+    foreach(tgt crypto_lib net_lib tls_handshake_c test_crypto client server)
+        target_compile_definitions(${tgt} PUBLIC _WIN32_WINNT=0x0601 WIN32_LEAN_AND_MEAN)
+    endforeach()
     target_link_libraries(tls_handshake_c PRIVATE ws2_32)
     target_link_libraries(test_crypto PRIVATE ws2_32)
     target_link_libraries(client PRIVATE ws2_32)
