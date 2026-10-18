@@ -119,7 +119,7 @@ int main(int argc, char* argv[])
     }
 
     crypto_free_keypair(&client_keypair);
-    printf("Handhsake is done\n");
+    printf("Handshake is done\n");
 
 
 

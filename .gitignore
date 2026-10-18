@@ -1,0 +1,33 @@
+# Build output
+build/
+cmake-build-*/
+
+# CMake artifacts, in case of an in-tree build
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+CTestTestfile.cmake
+Makefile
+Testing/
+_deps/
+
+# Objects and binaries
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.dylib
+*.dll
+*.exe
+*.pdb
+*.ilk
+
+# IDE and editor state
+.idea/
+.vscode/
+*.user
+
+# OS cruft
+.DS_Store
+Thumbs.db

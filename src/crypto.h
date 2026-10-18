@@ -48,7 +48,7 @@ typedef struct session_keypair {
 int crypto_init(void);
 
 /**
- * @brief generate randomly private key and then with Montgomery ladder derives public key.
+ * @brief Generates a fresh X25519 keypair: the secret key is 32 bytes from libsodium’s CSPRNG, the public key is derived from it by scalar multiplication of the curve25519 base point
  *
  * @param kp is a pointer on keypair_t where public and secret key will be stored.
  *
